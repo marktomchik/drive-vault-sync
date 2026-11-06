@@ -1,4 +1,4 @@
-import { App, Modal, Notice, Setting, TFile, setIcon } from "obsidian";
+import { App, Modal, Notice, Platform, Setting, TFile, setIcon } from "obsidian";
 import { DeviceFlowSession } from "./auth";
 import { AuthTransferPayload, buildTransferUrl, decryptAuth, encryptAuth, generateQRCodeDataUrl } from "./authTransfer";
 import {
@@ -793,7 +793,7 @@ export class AuthExportModal extends Modal {
     this.modalEl.addClass("dvs-modal");
     this.titleEl.setText("Sign in on another device");
     contentEl.empty();
-    intro(contentEl, "Scan this QR code with the camera of your phone or tablet, with Obsidian and this plugin installed. It signs that device in to the same Google account without repeating the setup.");
+    intro(contentEl, "Scan this QR code with the camera of the other device, with Obsidian and this plugin installed. It signs that device in to the same Google account without repeating the setup.");
     const warning = contentEl.createDiv("dvs-callout is-warning");
     setIcon(warning.createSpan("dvs-callout-icon"), "shield-alert");
     warning.createDiv({ text: "The code contains your Google access — treat it like a password and don't share screenshots of it." });
@@ -1072,9 +1072,10 @@ function renderTextSnapshot(pre: HTMLElement, lines: string[]) {
   if (lines.length > MAX_DIFF_LINES) pre.createSpan({ text: "\n… truncated …", cls: "dvs-diff-meta" });
 }
 
+/** Keeps real spaces on phones, where long lines have to wrap at word boundaries. */
 function formatDiffLine(line: string): string {
   if (line.length === 0) return "␀";
-  return line.replace(/\r/g, "␍").replace(/\t/g, "⇥").replace(/ /g, "·");
+  return line.replace(/\r/g, "␍").replace(/\t/g, "⇥").replace(/ /g, Platform.isPhone ? " " : "·");
 }
 
 type DiffOp = { type: "ctx" | "add" | "remove"; line: string };

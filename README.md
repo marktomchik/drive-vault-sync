@@ -4,7 +4,7 @@ Two-way sync between your Obsidian vault and **your own Google Drive** — on de
 
 ![Progress window](preview/progress.png)
 
-- **Live progress for everything it does.** A progress window shows each step (reading the cloud index, checking your vault, comparing, transferring, backing up, saving), every file being uploaded, downloaded, deleted, renamed, merged or backed up, a percentage, an estimate of the time left and per-file errors. The status bar shows the same at a glance.
+- **Live progress for everything it does.** A progress window shows each step (reading the cloud index, checking your vault, comparing, transferring, backing up, saving), every file being uploaded, downloaded, deleted, renamed, merged or backed up, a percentage, an estimate of the time left and per-file errors. The status bar shows the same at a glance; on phones, a notice shows how many files are done.
 - **Your edits are merged, not overwritten.** If the same note was edited on two devices in different places, the changes are combined automatically. Only overlapping edits ask you what to keep — with a side-by-side difference view.
 - **Safety first.** Before a sync overwrites or deletes anything, the previous version is backed up to Google Drive. Large deletions stop and ask for confirmation. Local deletions go to the trash.
 - **Fast and light.** Only changed files are read and hashed. Changes from your other devices are detected with a tiny metadata request instead of downloading the whole index.
@@ -41,12 +41,18 @@ That's it. The plugin now syncs a few seconds after you stop typing, when Obsidi
 
 | Where | What it does |
 | --- | --- |
-| Status bar / ribbon cloud icon | Click to sync now. While syncing, click to open the progress window. |
+| Status bar / ribbon cloud icon | Click to sync now. While syncing, click to open the progress window. On phones there is no status bar: use the cloud icon in the ribbon menu. |
 | Command **Sync now** | Starts a sync (add it to the mobile toolbar for one-tap sync). |
 | Command **Show sync progress** | Opens the live progress window. |
 | Command **Show files that failed to sync** | Lists problem files with their errors. |
 | Command **Open sync log** | A copyable report of the sync state and recent activity — safe to share, it contains no secrets or note contents. |
 | Command **Sync, then open today's daily note** | Syncs first, then opens today's note (uses your Daily notes folder and format). |
+
+## Phones and tablets
+
+- Obsidian runs only while it is open, so the plugin can't sync in the background. It sends pending edits when you leave the app (the system may interrupt this) and checks for changes when you return.
+- Keep Obsidian open with the screen on during the first sync of a large vault.
+- Every changed file is read into memory to be hashed and transferred, so very large files (videos, for example) can crash Obsidian on a phone. Add them under *Excluded paths* on that device.
 
 ## How your data is stored
 
@@ -81,9 +87,13 @@ npx eslint src  # Obsidian's review rules
 Releases are built by GitHub Actions: when `manifest.json` on `main` has a version without a release, the workflow builds the plugin, creates the tag and publishes the release.
 
 ```bash
-npm version patch --no-git-tag-version && node version-bump.mjs   # bump package.json, manifest.json, versions.json
+npm version patch --no-git-tag-version   # bump package.json, manifest.json, versions.json
 git commit -am "Release x.y.z" && git push
 ```
+
+## Credits
+
+Drive Vault Sync is a fork of [Google Drive Vault Sync](https://github.com/Haniewicz/ObsidianGoogleDriveSync) by Haniewicz, used under the MIT license. Haniewicz is credited as a contributor to this project.
 
 ## License
 

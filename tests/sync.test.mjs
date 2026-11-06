@@ -233,3 +233,18 @@ test("edits on two devices in different paragraphs are merged automatically", as
   assert.match(merged, /Remote line/);
   assert.equal(engine.getProgress().counts.merge, 1);
 });
+
+test("the scanner reads no more files at once than its concurrency allows", async () => {
+  const { app } = createVault(Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`note-${i}.png`, "x"])));
+  let reading = 0;
+  let peak = 0;
+  const readBinary = app.vault.readBinary;
+  app.vault.readBinary = async (file) => {
+    peak = Math.max(peak, ++reading);
+    await new Promise((resolve) => setTimeout(resolve, 1));
+    reading -= 1;
+    return readBinary(file);
+  };
+  await new LocalVaultScanner(app.vault, () => "", 2).scan();
+  assert.equal(peak, 2);
+});

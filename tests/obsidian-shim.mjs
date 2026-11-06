@@ -34,3 +34,5 @@ export function setIcon() {}
 export async function requestUrl() {
   throw new Error("Network is not available in tests");
 }
+
+export const Platform = { isMobile: false, isPhone: false };

@@ -2,7 +2,7 @@ import { TFile, Vault } from "obsidian";
 import { LocalFileMeta } from "./types";
 import { byteSize, getExtension, ignoredPatternsFromSettings, isIgnored, isLikelyText, sha256Hex } from "./utils";
 
-const SCAN_CONCURRENCY = 6;
+const DEFAULT_SCAN_CONCURRENCY = 6;
 
 /** Last known (mtime, size, hash) for a path — lets scan() skip re-reading/re-hashing content that hasn't changed. */
 export type ScanCacheEntry = { mtime: number; size: number; hash: string };
@@ -13,7 +13,7 @@ export type ScanOptions = {
 };
 
 export class LocalVaultScanner {
-  constructor(private vault: Vault, private getIgnoredPaths: () => string) {}
+  constructor(private vault: Vault, private getIgnoredPaths: () => string, private concurrency = DEFAULT_SCAN_CONCURRENCY) {}
 
   async scan(options?: ScanOptions): Promise<Record<string, LocalFileMeta>> {
     const ignored = ignoredPatternsFromSettings(this.getIgnoredPaths());
@@ -31,7 +31,7 @@ export class LocalVaultScanner {
         options?.onProgress?.(scanned, total);
       }
     };
-    await Promise.all(Array.from({ length: Math.min(SCAN_CONCURRENCY, files.length) }, worker));
+    await Promise.all(Array.from({ length: Math.min(this.concurrency, files.length) }, worker));
     return result;
   }
 

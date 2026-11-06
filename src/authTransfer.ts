@@ -70,7 +70,7 @@ export async function decryptAuth(
 }
 
 export async function generateQRCodeDataUrl(text: string): Promise<string> {
-  return QRCode.toDataURL(text, { margin: 2, width: 300 });
+  return QRCode.toDataURL(text, { margin: 2, width: 480 });
 }
 
 function bufToHex(buf: Uint8Array): string {

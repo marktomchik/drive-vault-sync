@@ -291,8 +291,10 @@
   cursor: pointer;
 }
 
-.dvs-activity.is-clickable:hover {
-  background: var(--background-modifier-hover);
+@media (hover: hover) {
+  .dvs-activity.is-clickable:hover {
+    background: var(--background-modifier-hover);
+  }
 }
 
 .dvs-activity-icon {
@@ -502,8 +504,10 @@
   background: var(--background-primary);
 }
 
-.dvs-choice-card:hover {
-  border-color: var(--interactive-accent);
+@media (hover: hover) {
+  .dvs-choice-card:hover {
+    border-color: var(--interactive-accent);
+  }
 }
 
 .dvs-choice-card.is-recommended {
@@ -846,6 +850,117 @@
 
 .dvs-diagnostic-head span:first-child {
   display: flex;
+}
+
+/* ---------- Phones and tablets ---------- */
+
+.is-mobile {
+  --dvs-touch-target: 44px;
+}
+
+.is-mobile .dvs-tab,
+.is-mobile .dvs-small-button,
+.is-mobile .dvs-list-toolbar button,
+.is-mobile .dvs-user-code-row button,
+.is-mobile .dvs-status-actions button,
+.is-mobile .dvs-activity {
+  min-height: var(--dvs-touch-target);
+}
+
+.is-mobile .dvs-failure-actions button {
+  min-height: var(--dvs-touch-target);
+  min-width: var(--dvs-touch-target);
+}
+
+.is-mobile .dvs-guide > summary,
+.is-mobile .dvs-section-details > summary {
+  padding-block: var(--size-4-2);
+}
+
+.is-mobile .dvs-activity.is-clickable:active {
+  background: var(--background-modifier-hover);
+}
+
+.is-phone .dvs-modal .modal-content {
+  padding-bottom: calc(var(--size-4-3) + env(safe-area-inset-bottom, 0px));
+}
+
+/* Rows of buttons wrap and fill the width; rows without a label give it all to the buttons. */
+.is-phone .dvs-modal .setting-item-control {
+  flex-wrap: wrap;
+}
+
+.is-phone .dvs-modal .setting-item-control button {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: var(--dvs-touch-target);
+  white-space: normal;
+}
+
+.is-phone .dvs-modal .setting-item:not(:has(.setting-item-name:not(:empty))) .setting-item-info {
+  display: none;
+}
+
+.is-phone .dvs-conflict-actions .setting-item-control {
+  grid-template-columns: 1fr;
+}
+
+.is-phone .dvs-status-actions button {
+  flex: 1 1 auto;
+}
+
+.is-phone .dvs-settings .setting-item {
+  flex-wrap: wrap;
+}
+
+.is-phone .dvs-settings .setting-item-info {
+  flex: 1 1 12rem;
+}
+
+/* The progress window keeps only the current stage; the bar above already shows the rest. */
+.is-phone .dvs-stage:not(.is-current, .is-failed) {
+  display: none;
+}
+
+.is-phone .dvs-stage-list:not(:has(.is-current, .is-failed)) {
+  display: none;
+}
+
+.is-phone .dvs-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-inline: var(--size-2-2);
+}
+
+.is-phone .dvs-activity-path {
+  display: block;
+}
+
+.is-phone .dvs-activity-name,
+.is-phone .dvs-activity-folder {
+  display: block;
+}
+
+.is-phone .dvs-activity-status {
+  font-size: var(--font-ui-smaller);
+}
+
+.is-phone .dvs-activity-list,
+.is-phone .dvs-file-list,
+.is-phone .dvs-failure-list {
+  min-height: 9rem;
+}
+
+.is-phone .dvs-diff-pre {
+  font-size: var(--font-ui-small);
+  max-height: 40vh;
+  min-height: 9rem;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.is-phone .dvs-log-textarea {
+  min-height: 12rem;
 }
 
 @media (prefers-reduced-motion: reduce) {

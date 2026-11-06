@@ -44,6 +44,8 @@ import { createLogger, ensureFolder, ignoredPatternsFromSettings, isIgnored, san
 const SYNC_LOG_PATH = ".sync/drive-vault-sync.log";
 const MAX_SYNC_LOG_BYTES = 512 * 1024;
 const STARTUP_SYNC_DELAY_MS = 2500;
+const MOBILE_SCAN_CONCURRENCY = 2;
+const RESUME_CHECK_MIN_INTERVAL_MS = 15000;
 /** Vault events for files the sync itself just wrote are ignored for this long after a sync. */
 const OWN_WRITE_GRACE_MS = 5000;
 /** Folder name used by earlier releases; settings and sign-in are imported from it once. */
@@ -66,6 +68,8 @@ export default class DriveVaultSyncPlugin extends Plugin {
   onStatusChange?: () => void;
 
   private statusBarEl?: HTMLElement;
+  private mobileProgressNotice?: Notice;
+  private lastResumeCheckAt = 0;
   private ribbonEl?: HTMLElement;
   private progressModal?: SyncProgressModal;
   private syncTimer?: number;
@@ -120,7 +124,7 @@ export default class DriveVaultSyncPlugin extends Plugin {
       async (offlineQueue) => this.savePluginData({ offlineQueue }),
       () => this.getDeviceId()
     );
-    this.scanner = new LocalVaultScanner(this.app.vault, () => this.settings.ignoredPaths);
+    this.scanner = new LocalVaultScanner(this.app.vault, () => this.settings.ignoredPaths, Platform.isMobile ? MOBILE_SCAN_CONCURRENCY : undefined);
     this.syncEngine = new SyncEngine({
       app: this.app,
       scanner: this.scanner,
@@ -160,6 +164,7 @@ export default class DriveVaultSyncPlugin extends Plugin {
     this.addSettingTab(new DriveVaultSyncSettingTab(this.app, this));
     this.registerCommands();
     this.registerVaultEvents();
+    this.registerMobileLifecycle();
     this.statusBarEl = this.addStatusBarItem();
     this.statusBarEl.addClass("dvs-status-bar");
     this.statusBarEl.setAttribute("aria-label-position", "top");
@@ -208,6 +213,7 @@ export default class DriveVaultSyncPlugin extends Plugin {
       void this.flushPluginData();
     }
     this.progressModal?.close();
+    this.mobileProgressNotice?.hide();
   }
 
   // -------------------------------------------------------------------------
@@ -941,6 +947,31 @@ export default class DriveVaultSyncPlugin extends Plugin {
     this.registerEvent(this.app.vault.on("rename", (file, oldPath) => handle(file, oldPath)));
   }
 
+  /** Phones freeze Obsidian in the background, so timers alone miss the moments around an app switch. */
+  private registerMobileLifecycle() {
+    if (!Platform.isMobile) return;
+    this.registerDomEvent(activeDocument, "visibilitychange", () => {
+      if (activeDocument.visibilityState === "hidden") this.handleAppHidden();
+      else this.handleAppResumed();
+    });
+    this.registerDomEvent(window, "online", () => this.handleAppResumed());
+  }
+
+  /** Sends edits waiting for the debounce right away: the system may freeze the app before the timer fires. */
+  private handleAppHidden() {
+    if (this.debounceTimer === undefined) return;
+    window.clearTimeout(this.debounceTimer);
+    this.debounceTimer = undefined;
+    void this.syncNow();
+  }
+
+  private handleAppResumed() {
+    if (Date.now() - this.lastResumeCheckAt < RESUME_CHECK_MIN_INTERVAL_MS) return;
+    this.lastResumeCheckAt = Date.now();
+    if (this.dirtyPaths.size > 0 || (this.pluginData.offlineQueue?.length ?? 0) > 0) this.scheduleAutoSync();
+    else if (this.settings.cloudWatchEnabled) void this.checkCloudForChanges();
+  }
+
   private isExcludedPath(path: string): boolean {
     return path.startsWith(".sync/")
       || path.startsWith(".trash/")
@@ -1099,8 +1130,23 @@ export default class DriveVaultSyncPlugin extends Plugin {
 
   private handleProgressUpdate(state: SyncProgressState) {
     this.updateStatusBar();
+    this.updateMobileProgressNotice(state);
     this.progressModal?.render(state);
     this.requestStatusRefresh();
+  }
+
+  /** Phones have no status bar, so syncs that transfer files report their progress in a notice. */
+  private updateMobileProgressNotice(state: SyncProgressState) {
+    if (!Platform.isMobile) return;
+    if (!state.active || this.progressModal) {
+      this.mobileProgressNotice?.hide();
+      this.mobileProgressNotice = undefined;
+      return;
+    }
+    if (state.total === 0) return;
+    const message = `Syncing with Google Drive: ${state.completed} of ${state.total}`;
+    if (this.mobileProgressNotice) this.mobileProgressNotice.setMessage(message);
+    else this.mobileProgressNotice = new Notice(message, 0);
   }
 
   /** Throttles settings-tab refreshes to one per animation frame. */
