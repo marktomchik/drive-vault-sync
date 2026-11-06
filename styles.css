@@ -346,8 +346,6 @@
   font-size: var(--font-ui-smaller);
   overflow: hidden;
   text-overflow: ellipsis;
-  direction: rtl;
-  text-align: left;
   flex-shrink: 3;
 }
 

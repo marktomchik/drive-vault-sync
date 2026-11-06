@@ -406,23 +406,23 @@ export class SyncProgressModal extends Modal {
 
   private renderCounters(container: HTMLElement, state: SyncProgressState) {
     const counts = state.counts;
-    const chips: Array<[string, string, number]> = [
-      ["upload", "Uploaded", counts.upload],
-      ["download", "Downloaded", counts.download],
-      ["trash-2", "Deleted", counts["delete-local"] + counts["delete-remote"]],
-      ["pencil", "Renamed", counts.rename],
-      ["git-merge", "Merged", counts.merge],
-      ["archive", "Backed up", counts.backup],
-      ["alert-triangle", "Conflicts", counts.conflict],
-      ["alert-circle", "Errors", counts.error]
+    const chips: Array<[string, string, string, number]> = [
+      ["upload", "uploaded", "uploaded", counts.upload],
+      ["download", "downloaded", "downloaded", counts.download],
+      ["trash-2", "deleted", "deleted", counts["delete-local"] + counts["delete-remote"]],
+      ["pencil", "renamed", "renamed", counts.rename],
+      ["git-merge", "merged", "merged", counts.merge],
+      ["archive", "backed up", "backed up", counts.backup],
+      ["alert-triangle", "conflict", "conflicts", counts.conflict],
+      ["alert-circle", "error", "errors", counts.error]
     ];
     const row = container.createDiv("dvs-counters");
-    for (const [icon, label, value] of chips) {
+    for (const [icon, singular, plural, value] of chips) {
       if (value === 0) continue;
       const chip = row.createDiv("dvs-chip");
-      if (label === "Errors") chip.addClass("is-error");
+      if (icon === "alert-circle") chip.addClass("is-error");
       setIcon(chip.createSpan("dvs-chip-icon"), icon);
-      chip.createSpan({ text: `${value} ${label.toLowerCase()}` });
+      chip.createSpan({ text: `${value} ${value === 1 ? singular : plural}` });
     }
     if (!row.hasChildNodes()) row.remove();
   }
@@ -463,7 +463,7 @@ export class SyncProgressModal extends Modal {
     const { folder, name } = splitPath(item.path);
     const pathEl = body.createDiv("dvs-activity-path");
     pathEl.createSpan({ cls: "dvs-activity-name", text: name });
-    if (folder) pathEl.createSpan({ cls: "dvs-activity-folder", text: folder });
+    if (folder) pathEl.createSpan({ cls: "dvs-activity-folder", text: folder.replace(/\/$/, "") });
     if (item.detail) body.createDiv({ cls: "dvs-activity-detail", text: item.detail });
     const status = row.createSpan("dvs-activity-status");
     status.setText(item.status === "active" ? `${activeVerb(item.kind)}…` : item.status === "error" ? "Failed" : item.status === "skipped" ? "Skipped" : doneVerb(item.kind));
