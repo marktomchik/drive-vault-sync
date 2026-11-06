@@ -87,4 +87,4 @@ git commit -am "Release x.y.z" && git push
 
 ## License
 
-MIT
+[MIT](LICENSE)
