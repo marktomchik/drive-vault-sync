@@ -1,0 +1,454 @@
+import { GoogleAuth } from "./auth";
+import { requestGoogleUrl } from "./googleRequest";
+import { BackupData, BackupFileSource, BackupMeta, RemoteManifest, RemoteSnapshotMeta, RemoteState } from "./types";
+import { RequestQueue } from "./queue";
+import { encodeQuery } from "./utils";
+
+const DRIVE_API = "https://www.googleapis.com/drive/v3";
+const UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
+const FOLDER_MIME = "application/vnd.google-apps.folder";
+const MANIFEST_NAME = ".obsidian-sync-manifest.json";
+const SNAPSHOTS_FOLDER_NAME = ".obsidian-sync-snapshots";
+const BACKUPS_FOLDER_NAME = ".obsidian-sync-backups";
+const MANUAL_BACKUPS_FOLDER_NAME = ".obsidian-sync-manual-backups";
+const MAX_SNAPSHOTS = 10;
+
+type DriveFile = {
+  id: string;
+  name: string;
+  mimeType?: string;
+  parents?: string[];
+  modifiedTime?: string;
+  size?: string;
+  headRevisionId?: string;
+  version?: string;
+};
+
+type DriveList = {
+  files?: DriveFile[];
+  nextPageToken?: string;
+};
+
+export type DriveVaultFile = {
+  id: string;
+  path: string;
+  name: string;
+  mimeType?: string;
+  modifiedTime?: string;
+  size?: string;
+  headRevisionId?: string;
+};
+
+export class GoogleDriveClient {
+  private rootFolderCache?: { name: string; id: string };
+
+  constructor(private auth: GoogleAuth, private queue: RequestQueue) {}
+
+  async test(): Promise<void> {
+    await this.requestJson(`${DRIVE_API}/about?fields=user`, "GET");
+  }
+
+  async loadRemoteState(folderName: string, vaultId: string): Promise<RemoteState> {
+    const rootFolderId = await this.ensureFolder(folderName);
+    const filesFolderId = await this.ensureFolder("files", rootFolderId);
+    const manifestFile = await this.findChild(rootFolderId, MANIFEST_NAME);
+    if (!manifestFile) {
+      return {
+        rootFolderId,
+        filesFolderId,
+        manifest: { version: 1, vaultId, updatedAt: Date.now(), files: {} }
+      };
+    }
+    const manifest = await this.downloadJson<RemoteManifest>(manifestFile.id);
+    if (manifest.version !== 1 || !manifest.files) {
+      throw new Error("Remote sync manifest is not compatible.");
+    }
+    return { rootFolderId, filesFolderId, manifestFileId: manifestFile.id, manifest };
+  }
+
+  /**
+   * Cheap change marker for the remote index: Drive bumps a file's `version` on every content change.
+   * Lets cloud watch poll with a tiny metadata request instead of downloading the whole index.
+   */
+  async getManifestMarker(folderName: string): Promise<string | undefined> {
+    const rootFolderId = await this.cachedRootFolderId(folderName);
+    const manifestFile = await this.findChild(rootFolderId, MANIFEST_NAME, undefined, "files(id,version,modifiedTime)");
+    if (!manifestFile) return undefined;
+    return `${manifestFile.id}:${manifestFile.version ?? manifestFile.modifiedTime ?? ""}`;
+  }
+
+  private async cachedRootFolderId(folderName: string): Promise<string> {
+    if (this.rootFolderCache?.name === folderName) return this.rootFolderCache.id;
+    const id = await this.ensureFolder(folderName);
+    this.rootFolderCache = { name: folderName, id };
+    return id;
+  }
+
+  async loadRemoteManifest(folderName: string): Promise<RemoteManifest | undefined> {
+    const rootFolderId = await this.ensureFolder(folderName);
+    const manifestFile = await this.findChild(rootFolderId, MANIFEST_NAME);
+    if (!manifestFile) return undefined;
+    const manifest = await this.downloadJson<RemoteManifest>(manifestFile.id);
+    if (manifest.version !== 1 || !manifest.files) {
+      throw new Error("Remote sync manifest is not compatible.");
+    }
+    return manifest;
+  }
+
+  async saveManifest(state: RemoteState): Promise<void> {
+    state.manifest.updatedAt = Date.now();
+    const body = JSON.stringify(state.manifest, null, 2);
+    if (state.manifestFileId) {
+      await this.updateContent(state.manifestFileId, body, "application/json");
+      return;
+    }
+    const created = await this.createFile(MANIFEST_NAME, state.rootFolderId, body, "application/json");
+    state.manifestFileId = created.id;
+  }
+
+  async createManifestSnapshot(state: RemoteState, deviceId: string, deviceName: string): Promise<RemoteSnapshotMeta> {
+    const snapshotsFolderId = await this.ensureFolder(SNAPSHOTS_FOLDER_NAME, state.rootFolderId);
+    const createdAt = Date.now();
+    const id = `${createdAt}-${deviceId.slice(0, 8)}`;
+    const safeName = deviceName.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "") || "device";
+    const name = `${new Date(createdAt).toISOString().replace(/[:.]/g, "-")}-${safeName}.json`;
+    const snapshotManifest: RemoteManifest = {
+      ...state.manifest,
+      snapshots: state.manifest.snapshots ?? []
+    };
+    const created = await this.createFile(name, snapshotsFolderId, JSON.stringify(snapshotManifest, null, 2), "application/json");
+    const snapshot: RemoteSnapshotMeta = {
+      id,
+      name,
+      fileId: created.id,
+      createdAt,
+      createdByDeviceId: deviceId,
+      createdByDeviceName: deviceName
+    };
+    const allSnapshots = [snapshot, ...(state.manifest.snapshots ?? [])];
+    state.manifest.snapshots = allSnapshots.slice(0, MAX_SNAPSHOTS);
+    const oldSnapshots = allSnapshots.slice(MAX_SNAPSHOTS);
+    for (const old of oldSnapshots) {
+      await this.trashFile(old.fileId);
+    }
+    return snapshot;
+  }
+
+  async createBackup(
+    state: RemoteState,
+    filesToBackUp: Record<string, BackupFileSource>,
+    deletedPaths: string[],
+    deviceId: string,
+    deviceName: string,
+    maxBackups: number,
+    onFileDone?: (path: string) => void
+  ): Promise<BackupMeta> {
+    const backupsFolderId = await this.ensureFolder(BACKUPS_FOLDER_NAME, state.rootFolderId);
+    const createdAt = Date.now();
+    const id = `${createdAt}-${deviceId.slice(0, 8)}`;
+    const safeName = deviceName.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "") || "device";
+    const folderName = `${new Date(createdAt).toISOString().replace(/[:.]/g, "-")}-${safeName}`;
+    const name = `${folderName}.json`;
+    const backupFolderId = await this.ensureFolder(folderName, backupsFolderId);
+
+    const changedFiles = await this.createBackupContentFiles(backupFolderId, filesToBackUp, onFileDone);
+    const backupData: BackupData = { v: 1, id, createdAt, deviceName, kind: "auto", snapshotFiles: true, changedFiles, deletedPaths };
+    const created = await this.createFile(name, backupFolderId, JSON.stringify(backupData, null, 2), "application/json");
+
+    const meta: BackupMeta = {
+      id, fileId: created.id, folderId: backupFolderId, name, kind: "auto", createdAt, deviceName,
+      changedCount: Object.keys(changedFiles).length,
+      deletedCount: deletedPaths.length
+    };
+    const allBackups = [meta, ...(state.manifest.backups ?? [])];
+    state.manifest.backups = allBackups.slice(0, maxBackups);
+    for (const old of allBackups.slice(maxBackups)) {
+      await this.trashFile(old.folderId ?? old.fileId);
+    }
+    return meta;
+  }
+
+  async createManualBackup(
+    state: RemoteState,
+    filesToBackUp: Record<string, BackupFileSource>,
+    label: string,
+    deviceId: string,
+    deviceName: string,
+    onFileDone?: (path: string) => void
+  ): Promise<BackupMeta> {
+    const manualBackupsFolderId = await this.ensureFolder(MANUAL_BACKUPS_FOLDER_NAME, state.rootFolderId);
+    const createdAt = Date.now();
+    const id = `${createdAt}-${deviceId.slice(0, 8)}`;
+    const safeLabel = this.safeName(label) || "manual-backup";
+    const safeDevice = this.safeName(deviceName) || "device";
+    const folderName = `${new Date(createdAt).toISOString().replace(/[:.]/g, "-")}-${safeLabel}-${safeDevice}`;
+    const name = `${folderName}.json`;
+    const backupFolderId = await this.ensureFolder(folderName, manualBackupsFolderId);
+
+    const changedFiles = await this.createBackupContentFiles(backupFolderId, filesToBackUp, onFileDone);
+    const backupData: BackupData = {
+      v: 1,
+      id,
+      createdAt,
+      deviceName,
+      label,
+      kind: "manual",
+      snapshotFiles: true,
+      changedFiles,
+      deletedPaths: []
+    };
+    const created = await this.createFile(name, backupFolderId, JSON.stringify(backupData, null, 2), "application/json");
+
+    const meta: BackupMeta = {
+      id,
+      fileId: created.id,
+      folderId: backupFolderId,
+      name,
+      label,
+      kind: "manual",
+      createdAt,
+      deviceName,
+      changedCount: Object.keys(changedFiles).length,
+      deletedCount: 0
+    };
+    state.manifest.manualBackups = [meta, ...(state.manifest.manualBackups ?? [])];
+    return meta;
+  }
+
+  private async createBackupContentFiles(
+    folderId: string,
+    filesToBackUp: Record<string, BackupFileSource>,
+    onFileDone?: (path: string) => void
+  ): Promise<BackupData["changedFiles"]> {
+    const changedFiles: BackupData["changedFiles"] = {};
+    for (const [path, source] of Object.entries(filesToBackUp)) {
+      const backupFileName = this.backupContentName(path);
+      const createdBackupFile = await this.createFile(backupFileName, folderId, source.content, source.mimeType);
+      changedFiles[path] = {
+        driveFileId: createdBackupFile.id,
+        hash: source.hash,
+        size: source.size,
+        mtime: source.mtime
+      };
+      onFileDone?.(path);
+    }
+    return changedFiles;
+  }
+
+  private backupContentName(path: string): string {
+    const safe = this.safeName(path).replace(/^-+|-+$/g, "") || "file";
+    return safe.length > 160 ? safe.slice(-160) : safe;
+  }
+
+  private safeName(value: string): string {
+    return value.replace(/[^a-z0-9._-]+/gi, "-").replace(/^-+|-+$/g, "");
+  }
+
+  async loadBackupData(fileId: string): Promise<BackupData> {
+    return this.downloadJson<BackupData>(fileId);
+  }
+
+  async downloadFile(fileId: string): Promise<ArrayBuffer> {
+    const token = await this.auth.getValidAccessToken();
+    return this.queue.run(async () => {
+      const response = await requestGoogleUrl({
+        url: `${DRIVE_API}/files/${encodeURIComponent(fileId)}?alt=media`,
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.status < 200 || response.status >= 300) throw statusError(response.status, "Download failed.");
+      return response.arrayBuffer;
+    });
+  }
+
+  async uploadVaultFile(path: string, content: string | ArrayBuffer, mimeType: string, filesFolderId: string, existingId?: string): Promise<DriveFile> {
+    if (existingId) return this.updateContent(existingId, content, mimeType);
+    const parentId = await this.ensureFolderPath(path.split("/").slice(0, -1), filesFolderId);
+    const name = path.split("/").pop() || path;
+    // Reuse a same-named file already in the folder (e.g. left by an interrupted sync) instead of creating a duplicate.
+    const existing = await this.findChild(parentId, name);
+    if (existing && existing.mimeType !== FOLDER_MIME) return this.updateContent(existing.id, content, mimeType);
+    return this.createFile(name, parentId, content, mimeType);
+  }
+
+  async listVaultFiles(filesFolderId: string): Promise<DriveVaultFile[]> {
+    const files: DriveVaultFile[] = [];
+    await this.collectVaultFiles(filesFolderId, "", files);
+    return files;
+  }
+
+  async renameVaultFile(fileId: string, newPath: string, filesFolderId: string): Promise<DriveFile> {
+    const parentId = await this.ensureFolderPath(newPath.split("/").slice(0, -1), filesFolderId);
+    const name = newPath.split("/").pop() || newPath;
+    const current = await this.requestJson<DriveFile>(
+      `${DRIVE_API}/files/${encodeURIComponent(fileId)}?fields=id,name,parents`,
+      "GET"
+    );
+    const removeParents = (current.parents ?? []).filter((id) => id !== parentId).join(",");
+    const query = encodeQuery({
+      fields: "id,name,modifiedTime,size,headRevisionId,parents",
+      addParents: parentId,
+      removeParents: removeParents || undefined
+    });
+    return this.requestJson<DriveFile>(
+      `${DRIVE_API}/files/${encodeURIComponent(fileId)}?${query}`,
+      "PATCH",
+      { name }
+    );
+  }
+
+  async trashFile(fileId: string): Promise<void> {
+    await this.requestJson(`${DRIVE_API}/files/${encodeURIComponent(fileId)}?fields=id,trashed`, "PATCH", { trashed: true });
+  }
+
+  private async ensureFolderPath(parts: string[], rootId: string): Promise<string> {
+    let parentId = rootId;
+    for (const part of parts.filter(Boolean)) {
+      parentId = await this.ensureFolder(part, parentId);
+    }
+    return parentId;
+  }
+
+  private async ensureFolder(name: string, parentId?: string): Promise<string> {
+    const existing = await this.findChild(parentId, name, FOLDER_MIME);
+    if (existing) return existing.id;
+    const metadata: Record<string, unknown> = { name, mimeType: FOLDER_MIME };
+    if (parentId) metadata.parents = [parentId];
+    const created = await this.requestJson<DriveFile>(`${DRIVE_API}/files?fields=id,name,mimeType`, "POST", metadata);
+    return created.id;
+  }
+
+  private async findChild(
+    parentId: string | undefined,
+    name: string,
+    mimeType?: string,
+    fields = "files(id,name,mimeType,modifiedTime,size,headRevisionId)"
+  ): Promise<DriveFile | undefined> {
+    const clauses = [`name = '${escapeDriveQuery(name)}'`, "trashed = false"];
+    if (parentId) clauses.push(`'${parentId}' in parents`);
+    if (mimeType) clauses.push(`mimeType = '${mimeType}'`);
+    const query = encodeQuery({
+      q: clauses.join(" and "),
+      fields,
+      pageSize: 1
+    });
+    const result = await this.requestJson<DriveList>(`${DRIVE_API}/files?${query}`, "GET");
+    return result.files?.[0];
+  }
+
+  private async collectVaultFiles(parentId: string, parentPath: string, output: DriveVaultFile[]): Promise<void> {
+    for (const child of await this.listChildren(parentId)) {
+      const path = parentPath ? `${parentPath}/${child.name}` : child.name;
+      if (child.mimeType === FOLDER_MIME) {
+        await this.collectVaultFiles(child.id, path, output);
+      } else {
+        output.push({
+          id: child.id,
+          path,
+          name: child.name,
+          mimeType: child.mimeType,
+          modifiedTime: child.modifiedTime,
+          size: child.size,
+          headRevisionId: child.headRevisionId
+        });
+      }
+    }
+  }
+
+  private async listChildren(parentId: string): Promise<DriveFile[]> {
+    const files: DriveFile[] = [];
+    let pageToken: string | undefined;
+    do {
+      const query = encodeQuery({
+        q: `'${escapeDriveQuery(parentId)}' in parents and trashed = false`,
+        fields: "nextPageToken,files(id,name,mimeType,modifiedTime,size,headRevisionId)",
+        pageSize: 1000,
+        pageToken
+      });
+      const result = await this.requestJson<DriveList>(`${DRIVE_API}/files?${query}`, "GET");
+      files.push(...(result.files ?? []));
+      pageToken = result.nextPageToken;
+    } while (pageToken);
+    return files;
+  }
+
+  private async downloadJson<T>(fileId: string): Promise<T> {
+    const data = await this.downloadFile(fileId);
+    return JSON.parse(new TextDecoder().decode(data)) as T;
+  }
+
+  private async requestJson<T>(url: string, method: string, body?: unknown): Promise<T> {
+    const token = await this.auth.getValidAccessToken();
+    return this.queue.run(async () => {
+      const response = await requestGoogleUrl({
+        url,
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(body ? { "Content-Type": "application/json" } : {})
+        },
+        body: body ? JSON.stringify(body) : undefined
+      });
+      if (response.status < 200 || response.status >= 300) throw statusError(response.status, "Google Drive request failed.");
+      return response.json as T;
+    });
+  }
+
+  private async createFile(name: string, parentId: string, content: string | ArrayBuffer, mimeType: string): Promise<DriveFile> {
+    const token = await this.auth.getValidAccessToken();
+    return this.queue.run(async () => {
+      const response = await requestGoogleUrl({
+        url: `${UPLOAD_API}/files?uploadType=multipart&fields=id,name,modifiedTime,size,headRevisionId`,
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": `multipart/related; boundary=${BOUNDARY}`
+        },
+        body: multipartBody({ name, parents: [parentId] }, content, mimeType)
+      });
+      if (response.status < 200 || response.status >= 300) throw statusError(response.status, "Google Drive upload failed.");
+      return response.json as DriveFile;
+    });
+  }
+
+  private async updateContent(fileId: string, content: string | ArrayBuffer, mimeType: string): Promise<DriveFile> {
+    const token = await this.auth.getValidAccessToken();
+    return this.queue.run(async () => {
+      const response = await requestGoogleUrl({
+        url: `${UPLOAD_API}/files/${encodeURIComponent(fileId)}?uploadType=media&fields=id,name,modifiedTime,size,headRevisionId`,
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": mimeType
+        },
+        body: content
+      });
+      if (response.status < 200 || response.status >= 300) throw statusError(response.status, "Google Drive update failed.");
+      return response.json as DriveFile;
+    });
+  }
+}
+
+const BOUNDARY = "drive_vault_sync_boundary";
+
+function multipartBody(metadata: Record<string, unknown>, content: string | ArrayBuffer, mimeType: string): ArrayBuffer {
+  const encoder = new TextEncoder();
+  const head = encoder.encode(`--${BOUNDARY}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${BOUNDARY}\r\nContent-Type: ${mimeType}\r\n\r\n`);
+  const media = typeof content === "string" ? encoder.encode(content) : new Uint8Array(content);
+  const tail = encoder.encode(`\r\n--${BOUNDARY}--`);
+  const bytes = new Uint8Array(head.byteLength + media.byteLength + tail.byteLength);
+  bytes.set(head, 0);
+  bytes.set(media, head.byteLength);
+  bytes.set(tail, head.byteLength + media.byteLength);
+  return bytes.buffer;
+}
+
+function escapeDriveQuery(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+function statusError(status: number, message: string): Error & { status?: number } {
+  const error = new Error(`${message} (${status})`) as Error & { status?: number };
+  error.status = status;
+  return error;
+}

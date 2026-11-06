@@ -1,0 +1,22 @@
+node_modules/
+
+# Build output (attached to GitHub releases instead)
+main.js
+*.js.map
+
+# Logs and caches
+*.log
+.cache/
+.eslintcache
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local environment and plugin data — never commit OAuth secrets or tokens
+.env
+.env.*
+data.json
+data.json.*

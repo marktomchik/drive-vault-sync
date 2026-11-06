@@ -1,0 +1,865 @@
+/* Drive Vault Sync */
+
+.dvs-hidden {
+  display: none !important;
+}
+
+.dvs-muted {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.dvs-intro {
+  color: var(--text-muted);
+  margin: 0 0 var(--size-4-3);
+  line-height: var(--line-height-normal);
+}
+
+.dvs-error-text {
+  color: var(--text-error);
+}
+
+.dvs-success-text {
+  color: var(--color-green);
+}
+
+.dvs-bullets {
+  color: var(--text-muted);
+  margin: 0 0 var(--size-4-3);
+}
+
+@keyframes dvs-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dvs-spin svg {
+  animation: dvs-rotate 1.2s linear infinite;
+}
+
+/* ---------- Status bar & ribbon ---------- */
+
+.dvs-status-bar {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-2);
+}
+
+.dvs-status-bar-icon {
+  display: flex;
+}
+
+.dvs-status-bar-icon svg {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+}
+
+.dvs-status-bar.is-syncing .dvs-status-bar-icon svg,
+.dvs-ribbon-syncing svg {
+  animation: dvs-rotate 1.2s linear infinite;
+}
+
+.dvs-status-bar.is-error {
+  color: var(--text-error);
+}
+
+.dvs-status-bar-text {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Progress bar ---------- */
+
+.dvs-progress-bar {
+  --dvs-progress: 0%;
+  position: relative;
+  width: 100%;
+  height: 8px;
+  border-radius: var(--radius-l);
+  background: var(--background-modifier-border);
+  overflow: hidden;
+  margin: var(--size-4-2) 0;
+}
+
+.dvs-progress-bar-small {
+  height: 5px;
+  margin: var(--size-4-2) 0 0;
+}
+
+.dvs-progress-bar-fill {
+  height: 100%;
+  width: var(--dvs-progress);
+  border-radius: inherit;
+  background: var(--interactive-accent);
+  transition: width 0.25s ease;
+}
+
+.dvs-progress-bar.is-done .dvs-progress-bar-fill {
+  background: var(--color-green);
+}
+
+.dvs-progress-bar.is-error .dvs-progress-bar-fill {
+  background: var(--color-red);
+}
+
+@keyframes dvs-indeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+.dvs-progress-bar.is-indeterminate .dvs-progress-bar-fill {
+  width: 40%;
+  animation: dvs-indeterminate 1.4s ease-in-out infinite;
+}
+
+/* ---------- Progress window ---------- */
+
+.dvs-progress-modal .modal-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.dvs-progress-top {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+
+.dvs-progress-status-icon {
+  display: flex;
+  color: var(--interactive-accent);
+}
+
+.dvs-progress-headline {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--font-semibold);
+}
+
+.dvs-progress-percent {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-bold);
+  font-size: var(--font-ui-large);
+}
+
+.dvs-progress-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-2-2) var(--size-4-4);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.dvs-stage-list {
+  list-style: none;
+  margin: var(--size-4-4) 0 var(--size-4-2);
+  padding: 0;
+  display: grid;
+  gap: var(--size-2-3);
+}
+
+.dvs-stage {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--size-4-2);
+  color: var(--text-faint);
+}
+
+.dvs-stage-icon {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.dvs-stage-icon svg {
+  width: var(--icon-s);
+  height: var(--icon-s);
+}
+
+.dvs-stage.is-done {
+  color: var(--text-muted);
+}
+
+.dvs-stage.is-done .dvs-stage-icon {
+  color: var(--color-green);
+}
+
+.dvs-stage.is-current {
+  color: var(--text-normal);
+  font-weight: var(--font-semibold);
+}
+
+.dvs-stage.is-current .dvs-stage-icon {
+  color: var(--interactive-accent);
+}
+
+.dvs-stage.is-failed,
+.dvs-stage.is-failed .dvs-stage-icon {
+  color: var(--text-error);
+}
+
+.dvs-stage-detail {
+  font-weight: var(--font-normal);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-variant-numeric: tabular-nums;
+}
+
+.dvs-counters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-2-3);
+  margin: var(--size-4-2) 0;
+}
+
+.dvs-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  padding: var(--size-2-1) var(--size-4-2);
+  border-radius: var(--radius-l);
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.dvs-chip.is-error {
+  color: var(--text-error);
+  border-color: var(--color-red);
+}
+
+.dvs-chip-icon {
+  display: flex;
+}
+
+.dvs-chip-icon svg {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+}
+
+.dvs-tabs {
+  display: flex;
+  gap: var(--size-2-2);
+  margin: var(--size-4-2) 0 var(--size-2-3);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.dvs-tab {
+  background: none;
+  box-shadow: none;
+  border-radius: var(--radius-s) var(--radius-s) 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  padding: var(--size-2-2) var(--size-4-2);
+  height: auto;
+}
+
+.dvs-tab.is-active {
+  color: var(--text-normal);
+  box-shadow: inset 0 -2px 0 var(--interactive-accent);
+}
+
+.dvs-activity-list {
+  max-height: min(45vh, 26rem);
+  overflow-y: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+}
+
+.dvs-activity {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-2-3) var(--size-4-3);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.dvs-activity:last-child {
+  border-bottom: none;
+}
+
+.dvs-activity.is-clickable {
+  cursor: pointer;
+}
+
+.dvs-activity.is-clickable:hover {
+  background: var(--background-modifier-hover);
+}
+
+.dvs-activity-icon {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.dvs-activity-icon svg {
+  width: var(--icon-s);
+  height: var(--icon-s);
+}
+
+.dvs-activity.is-active .dvs-activity-icon,
+.dvs-activity.is-active .dvs-activity-status {
+  color: var(--interactive-accent);
+}
+
+.dvs-activity.is-error .dvs-activity-icon,
+.dvs-activity.is-error .dvs-activity-status,
+.dvs-activity.is-error .dvs-activity-detail {
+  color: var(--text-error);
+}
+
+.dvs-activity.is-skipped {
+  opacity: 0.7;
+}
+
+.dvs-activity-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dvs-activity-path {
+  display: flex;
+  gap: var(--size-2-2);
+  align-items: baseline;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.dvs-activity-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 2em;
+}
+
+.dvs-activity-folder {
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+  flex-shrink: 3;
+}
+
+.dvs-activity-detail {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  overflow-wrap: anywhere;
+}
+
+.dvs-activity-status {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.dvs-empty {
+  color: var(--text-muted);
+  padding: var(--size-4-4);
+  text-align: center;
+}
+
+/* ---------- Sign-in ---------- */
+
+.dvs-steps {
+  color: var(--text-muted);
+  padding-inline-start: var(--size-4-5);
+}
+
+.dvs-user-code-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--size-4-4);
+  margin: var(--size-4-4) 0;
+}
+
+.dvs-user-code {
+  font-family: var(--font-monospace);
+  font-size: 2rem;
+  font-weight: var(--font-bold);
+  letter-spacing: 0.12em;
+  user-select: all;
+  padding: var(--size-4-2) var(--size-4-4);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+
+.dvs-waiting {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  color: var(--text-muted);
+}
+
+.dvs-spinner {
+  display: flex;
+}
+
+.dvs-spinner svg {
+  animation: dvs-rotate 1.2s linear infinite;
+}
+
+.dvs-qr-container {
+  text-align: center;
+}
+
+.dvs-qr {
+  display: block;
+  margin: var(--size-4-3) auto;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-m);
+  background: white;
+  padding: var(--size-4-2);
+}
+
+/* ---------- Lists, dialogs ---------- */
+
+.dvs-list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-2-3);
+  align-items: center;
+  margin: var(--size-4-2) 0 var(--size-2-2);
+}
+
+.dvs-search {
+  flex: 1 1 12rem;
+  width: 100%;
+}
+
+.dvs-list-counter {
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+}
+
+.dvs-file-list {
+  max-height: 45vh;
+  overflow: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  padding: 0 var(--size-4-2);
+  margin: var(--size-2-3) 0 var(--size-4-3);
+}
+
+.dvs-callout {
+  display: flex;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-3);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+  margin: 0 0 var(--size-4-3);
+}
+
+.dvs-callout.is-warning {
+  background: rgba(var(--color-orange-rgb), 0.12);
+}
+
+.dvs-callout-icon {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--color-orange);
+}
+
+.dvs-path-pill {
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-small);
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+  padding: var(--size-2-2) var(--size-4-2);
+  margin-bottom: var(--size-4-3);
+  overflow-wrap: anywhere;
+}
+
+.dvs-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--size-4-3);
+  margin-bottom: var(--size-4-3);
+}
+
+.dvs-choice-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--size-2-3);
+  height: auto;
+  padding: var(--size-4-4);
+  text-align: left;
+  white-space: normal;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-l);
+  background: var(--background-primary);
+}
+
+.dvs-choice-card:hover {
+  border-color: var(--interactive-accent);
+}
+
+.dvs-choice-card.is-recommended {
+  border-color: var(--interactive-accent);
+}
+
+.dvs-choice-icon {
+  display: flex;
+  color: var(--interactive-accent);
+}
+
+.dvs-choice-icon svg {
+  width: var(--icon-l);
+  height: var(--icon-l);
+}
+
+.dvs-choice-title {
+  font-weight: var(--font-semibold);
+  color: var(--text-normal);
+}
+
+.dvs-choice-desc {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.dvs-choice-badge {
+  position: absolute;
+  top: var(--size-4-2);
+  right: var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-on-accent);
+  background: var(--interactive-accent);
+  border-radius: var(--radius-l);
+  padding: 0 var(--size-4-2);
+}
+
+.dvs-conflict-actions {
+  border-top: 0;
+  padding-top: var(--size-4-3);
+}
+
+.dvs-conflict-actions .setting-item-info {
+  display: none;
+}
+
+.dvs-conflict-actions .setting-item-control {
+  display: grid;
+  gap: var(--size-4-2);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+}
+
+.dvs-conflict-actions .setting-item-control button {
+  height: auto;
+  min-height: var(--input-height);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  width: 100%;
+}
+
+@media (max-width: 360px) {
+  .dvs-conflict-actions .setting-item-control {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Diff ---------- */
+
+.dvs-diff-pre {
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+  padding: var(--size-4-2);
+  margin: var(--size-2-2) 0 0;
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.dvs-diff-remove {
+  color: var(--text-error);
+}
+
+.dvs-diff-add {
+  color: var(--color-green);
+}
+
+.dvs-diff-ctx {
+  color: var(--text-muted);
+}
+
+.dvs-diff-meta {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.dvs-backup-row {
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding: var(--size-2-3) 0;
+}
+
+.dvs-backup-row:last-child {
+  border-bottom: none;
+}
+
+.dvs-backup-row-header {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-3);
+}
+
+.dvs-backup-row-header > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dvs-path-deleted {
+  color: var(--text-error);
+}
+
+.dvs-path-changed {
+  color: var(--text-muted);
+}
+
+.dvs-small-button {
+  font-size: var(--font-ui-smaller);
+  height: auto;
+  padding: var(--size-2-1) var(--size-4-2);
+  flex-shrink: 0;
+}
+
+/* ---------- Sync log & failures ---------- */
+
+.dvs-log-textarea {
+  width: 100%;
+  min-height: 22rem;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.4;
+  white-space: pre;
+  resize: vertical;
+}
+
+.dvs-failure-list {
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.dvs-failure {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  padding: var(--size-4-2) var(--size-4-3);
+  margin-bottom: var(--size-4-2);
+}
+
+.dvs-failure-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--size-4-2);
+}
+
+.dvs-failure-path {
+  flex: 1 1 auto;
+  font-weight: var(--font-semibold);
+  overflow-wrap: anywhere;
+}
+
+.dvs-failure-actions {
+  display: flex;
+  gap: var(--size-2-2);
+}
+
+.dvs-failure-actions button {
+  padding: var(--size-2-1) var(--size-2-3);
+  height: auto;
+}
+
+.dvs-failure-meta {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  margin: var(--size-2-1) 0 var(--size-2-3);
+}
+
+.dvs-failure-error {
+  margin: 0;
+  font-size: var(--font-ui-smaller);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text-error);
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+  padding: var(--size-2-3) var(--size-4-2);
+}
+
+.dvs-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--size-4-2);
+  text-align: center;
+  color: var(--text-muted);
+  padding: var(--size-4-6) var(--size-4-4);
+}
+
+.dvs-empty-icon {
+  color: var(--color-green);
+}
+
+.dvs-empty-icon svg {
+  width: var(--icon-xl);
+  height: var(--icon-xl);
+}
+
+/* ---------- Settings ---------- */
+
+.dvs-status-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-3) var(--size-4-4);
+  padding: var(--size-4-4);
+  margin-bottom: var(--size-4-6);
+  border-radius: var(--radius-l);
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+}
+
+.dvs-status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  background: var(--background-primary);
+  color: var(--color-green);
+  flex-shrink: 0;
+}
+
+.dvs-status-card.is-syncing .dvs-status-icon {
+  color: var(--interactive-accent);
+}
+
+.dvs-status-card.is-error .dvs-status-icon {
+  color: var(--text-error);
+}
+
+.dvs-status-card.is-disconnected .dvs-status-icon {
+  color: var(--text-muted);
+}
+
+.dvs-status-body {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.dvs-status-title {
+  font-size: var(--font-ui-medium);
+  font-weight: var(--font-semibold);
+}
+
+.dvs-status-subtitle,
+.dvs-status-summary {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dvs-status-summary {
+  color: var(--text-faint);
+}
+
+.dvs-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-2-3);
+}
+
+.dvs-guide,
+.dvs-section-details {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  padding: var(--size-4-2) var(--size-4-3);
+  margin: var(--size-4-3) 0;
+}
+
+.dvs-guide > summary,
+.dvs-section-details > summary {
+  cursor: pointer;
+  font-weight: var(--font-semibold);
+}
+
+.dvs-guide ol {
+  color: var(--text-muted);
+  line-height: var(--line-height-normal);
+}
+
+.dvs-section-details.dvs-danger > summary {
+  color: var(--text-error);
+}
+
+.dvs-subheading {
+  margin: var(--size-4-3) 0 var(--size-2-2);
+  font-size: var(--font-ui-medium);
+}
+
+.dvs-textarea {
+  width: 100%;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+}
+
+.dvs-diagnostics {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  padding: var(--size-4-2) var(--size-4-3);
+  margin-bottom: var(--size-4-3);
+}
+
+.dvs-diagnostic-item {
+  padding: var(--size-2-3) 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.dvs-diagnostic-item:last-child {
+  border-bottom: none;
+}
+
+.dvs-diagnostic-head {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-3);
+}
+
+.dvs-diagnostic-head span:first-child {
+  display: flex;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dvs-spin svg,
+  .dvs-spinner svg,
+  .dvs-status-bar.is-syncing .dvs-status-bar-icon svg,
+  .dvs-ribbon-syncing svg,
+  .dvs-progress-bar.is-indeterminate .dvs-progress-bar-fill {
+    animation: none;
+  }
+
+  .dvs-progress-bar-fill {
+    transition: none;
+  }
+}

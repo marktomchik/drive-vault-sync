@@ -1,0 +1,38 @@
+{
+  "name": "drive-vault-sync",
+  "version": "1.0.0",
+  "description": "Two-way sync of an Obsidian vault with your own Google Drive.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
+    "test": "node --test tests/*.test.mjs",
+    "version": "node version-bump.mjs && git add manifest.json versions.json"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "google-drive",
+    "sync",
+    "backup"
+  ],
+  "author": "marktomchik",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/qrcode": "^1.5.6",
+    "esbuild": "^0.21.5",
+    "eslint": "^9.39.5",
+    "eslint-plugin-obsidianmd": "^0.5.1",
+    "obsidian": "^1.5.12",
+    "typescript": "^5.4.5",
+    "typescript-eslint": "^8.72.1"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marktomchik/drive-vault-sync.git"
+  }
+}
