@@ -78,11 +78,11 @@ npm run build   # type-check and production build
 npx eslint src  # Obsidian's review rules
 ```
 
-Releases are built by GitHub Actions when a version tag is pushed:
+Releases are built by GitHub Actions: when `manifest.json` on `main` has a version without a release, the workflow builds the plugin, creates the tag and publishes the release.
 
 ```bash
-npm version patch   # bumps package.json, manifest.json and versions.json
-git push --follow-tags
+npm version patch --no-git-tag-version && node version-bump.mjs   # bump package.json, manifest.json, versions.json
+git commit -am "Release x.y.z" && git push
 ```
 
 ## License
