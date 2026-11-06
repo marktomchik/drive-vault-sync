@@ -87,4 +87,4 @@ git push --follow-tags
 
 ## License
 
-[MIT](LICENSE)
+MIT
