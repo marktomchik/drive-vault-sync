@@ -2,6 +2,8 @@
 
 Two-way sync between your Obsidian vault and **your own Google Drive** — on desktop and mobile.
 
+![Progress window](preview/progress.png)
+
 - **Live progress for everything it does.** A progress window shows each step (reading the cloud index, checking your vault, comparing, transferring, backing up, saving), every file being uploaded, downloaded, deleted, renamed, merged or backed up, a percentage, an estimate of the time left and per-file errors. The status bar shows the same at a glance.
 - **Your edits are merged, not overwritten.** If the same note was edited on two devices in different places, the changes are combined automatically. Only overlapping edits ask you what to keep — with a side-by-side difference view.
 - **Safety first.** Before a sync overwrites or deletes anything, the previous version is backed up to Google Drive. Large deletions stop and ask for confirmation. Local deletions go to the trash.
