@@ -144,7 +144,22 @@ export class SyncEngine {
           const lastRemoteHash = record?.lastKnownRemoteHash ?? entry?.lastSyncedHash ?? null;
           const baseHash = lastLocalHash ?? lastRemoteHash ?? null;
 
-          if (localMeta && remoteMeta && !remoteMeta.deleted && localMeta.hash === baseHash && remoteMeta.hash === baseHash) continue;
+          if (localMeta && remoteMeta && !remoteMeta.deleted && localMeta.hash === baseHash && remoteMeta.hash === baseHash) {
+            // In sync, but an older sync may have left the entry flagged as deleted: clear the stale flag.
+            if (entry?.deleted || record?.deleted) {
+              index[path] = { ...entry, path, lastSyncedHash: localMeta.hash, deleted: false };
+              updateRecordFromSync(localManifest.records, path, localMeta, remoteMeta, this.options.getDeviceId(), false);
+            }
+            continue;
+          }
+
+          if (!localMeta && !remoteMeta) {
+            // Nothing exists on either side (the cloud no longer even has a tombstone): forget the stale entry.
+            await this.log("sync-engine-stale-entry-pruned", { path });
+            delete index[path];
+            delete localManifest.records[path];
+            continue;
+          }
 
           if (localMeta && remoteMeta && !remoteMeta.deleted && localMeta.hash !== baseHash && remoteMeta.hash === baseHash) {
             changedPaths.push(path);
@@ -340,8 +355,9 @@ export class SyncEngine {
       const lastRemoteHash = record?.lastKnownRemoteHash ?? entry?.lastSyncedHash ?? null;
       const baseHash = lastLocalHash ?? lastRemoteHash ?? null;
       const inSync = localMeta && remoteMeta && !remoteMeta.deleted && localMeta.hash === baseHash && remoteMeta.hash === baseHash;
-      const bothGone = !localMeta && remoteMeta?.deleted;
-      if (!inSync && !bothGone) count += 1;
+      // Nothing to transfer when the file is gone locally and the cloud has no live copy of it.
+      const nothingToTransfer = !localMeta && (!remoteMeta || remoteMeta.deleted);
+      if (!inSync && !nothingToTransfer) count += 1;
     }
     return count;
   }
@@ -848,11 +864,17 @@ export class SyncEngine {
     for (const path of paths) {
       const localMeta = local[path];
       const remoteMeta = manifest.files[path];
-      const lastHash = localManifest.records[path]?.lastKnownRemoteHash ?? index[path]?.lastSyncedHash;
+      const record = localManifest.records[path];
+      const entry = index[path];
+      const lastHash = record?.lastKnownRemoteHash ?? entry?.lastSyncedHash;
       if (!localMeta && remoteMeta && !remoteMeta.deleted && remoteMeta.hash === lastHash) {
         plan.push({ path, direction: "remote" });
       }
-      if (localMeta && remoteMeta?.deleted && localMeta.hash === lastHash) {
+      // A file this device already knew as deleted but which exists again is re-uploaded by the sync
+      // loop ("recreated"), so it must not be planned (or counted) as a local deletion.
+      const baseHash = record?.lastKnownLocalHash ?? record?.lastKnownRemoteHash ?? entry?.lastSyncedHash ?? null;
+      const recreated = baseHash === null || entry?.deleted || record?.deleted;
+      if (localMeta && remoteMeta?.deleted && localMeta.hash === lastHash && !recreated) {
         plan.push({ path, direction: "local" });
       }
     }

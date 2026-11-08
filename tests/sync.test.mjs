@@ -147,7 +147,7 @@ function createEngine({ app, drive }) {
     getMaxBackups: () => 10,
     appendLog: async () => undefined,
     persistFailures: async (failures) => { pluginData.failures = failures; },
-    onProgress: (state) => progressStates.push({ stage: state.stage, active: state.active })
+    onProgress: (state) => progressStates.push({ stage: state.stage, active: state.active, total: state.total })
   });
   return { engine, pluginData, progressStates };
 }
@@ -247,4 +247,50 @@ test("the scanner reads no more files at once than its concurrency allows", asyn
   };
   await new LocalVaultScanner(app.vault, () => "", 2).scan();
   assert.equal(peak, 2);
+});
+
+test("stale entries for files gone everywhere are pruned and not counted as work", async () => {
+  const { app } = createVault({ "Note.md": "hello" });
+  const drive = createDrive();
+  const { engine, pluginData } = createEngine({ app, drive });
+  await engine.syncNow(false);
+  pluginData.index["Ghost.md"] = { path: "Ghost.md", lastSyncedHash: "abc", deleted: true };
+  pluginData.localManifest.records["Ghost.md"] = { path: "Ghost.md", lastKnownLocalHash: null, lastKnownRemoteHash: null, deleted: true };
+  const summary = await engine.syncNow(false);
+  assert.equal(summary.uploads + summary.downloads + summary.localDeletes + summary.remoteDeletes, 0);
+  assert.equal(engine.getProgress().total, 0, "nothing should be counted as pending work");
+  assert.equal(pluginData.index["Ghost.md"], undefined);
+  assert.equal(pluginData.localManifest.records["Ghost.md"], undefined);
+});
+
+test("an in-sync file wrongly flagged as deleted gets the flag cleared", async () => {
+  const { app } = createVault({ "Note.md": "hello" });
+  const drive = createDrive();
+  const { engine, pluginData } = createEngine({ app, drive });
+  await engine.syncNow(false);
+  pluginData.index["Note.md"] = { ...pluginData.index["Note.md"], deleted: true };
+  pluginData.localManifest.records["Note.md"] = { ...pluginData.localManifest.records["Note.md"], lastKnownLocalHash: null, lastKnownRemoteHash: null, deleted: true };
+  const summary = await engine.syncNow(false);
+  assert.equal(summary.uploads + summary.downloads + summary.localDeletes + summary.remoteDeletes, 0);
+  assert.equal(pluginData.index["Note.md"].deleted, false);
+  assert.equal(pluginData.localManifest.records["Note.md"].deleted, false);
+});
+
+test("files that reappear locally after a cloud deletion are re-uploaded and counted up front", async () => {
+  const { app, vault } = createVault({ "A.md": "a", "B.md": "b", "C.md": "c" });
+  const drive = createDrive();
+  const { engine, progressStates } = createEngine({ app, drive });
+  await engine.syncNow(false);
+  for (const name of ["A.md", "B.md", "C.md"]) vault.files.delete(name);
+  await engine.syncNow(false);
+  assert.equal(drive.state.manifest.files["A.md"].deleted, true);
+  for (const name of ["A.md", "B.md", "C.md"]) vault.put(name, name[0].toLowerCase());
+  progressStates.length = 0;
+  const summary = await engine.syncNow(false);
+  assert.equal(summary.uploads, 3);
+  assert.equal(summary.localDeletes, 0);
+  assert.ok(vault.files.has("A.md"), "the local file must survive");
+  assert.equal(drive.state.manifest.files["A.md"].deleted, false);
+  const firstTransfer = progressStates.find((state) => state.stage === "transferring");
+  assert.equal(firstTransfer.total, 3, "the total is known before the first upload");
 });
