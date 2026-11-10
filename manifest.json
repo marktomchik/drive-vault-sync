@@ -1,7 +1,7 @@
 {
   "id": "drive-vault-sync",
   "name": "Drive Vault Sync",
-  "version": "1.0.2",
+  "version": "1.2.0",
   "minAppVersion": "1.8.0",
   "description": "Two-way sync of your vault with your own Google Drive, with live progress, automatic merging of edits, conflict review and backups.",
   "author": "marktomchik",

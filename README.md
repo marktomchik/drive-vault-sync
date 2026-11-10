@@ -13,6 +13,8 @@ Two-way sync between your Obsidian vault and **your own Google Drive** — on de
 - **Backups you control.** Automatic backups (only when needed, regularly, or on every sync) plus named full backups that are kept until you delete them. Preview, compare and restore single files or whole backups.
 - **Easy multi-device setup.** Sign in once, then move the sign-in to your phone or tablet by scanning a (password-protected) QR code.
 
+> **Note on 1.1.0–1.2.0.** The `main.js` in releases 1.1.0 and later was **not** built from `src/` in this repository. `src/` still holds 1.0.2. Release 1.2.0 is the 1.1.0 bundle with a local patch. [`patches/1.2.0/`](patches/1.2.0/) has the diff, a description of the changes and tests. The 1.1.0 source still has to be restored and the patch ported into `src/`. Until then, `npm run build` produces 1.0.2 code.
+
 ## Before you start
 
 - **Back up your vault** before the first sync. Sync software moves and deletes files by design; a bug, an interrupted run or a wrong choice can lose data.
