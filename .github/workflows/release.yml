@@ -39,10 +39,25 @@ jobs:
 
       - name: Build
         if: steps.existing.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npm ci
-          npm test
-          npm run build
+          version="${{ steps.version.outputs.version }}"
+          patch_dir="patches/$version"
+          if [ -f "$patch_dir/BASE" ]; then
+            # Patched release: the source in src/ is older than the released bundle,
+            # so main.js is the BASE release's main.js with this version's patch applied.
+            base="$(tr -d '[:space:]' < "$patch_dir/BASE")"
+            gh release download "$base" --pattern main.js --output base-main.js
+            node "$patch_dir/apply.mjs" base-main.js main.js
+            node --check main.js
+            BUNDLE="$PWD/main.js" node --test "$patch_dir/patch.test.mjs"
+            if [ ! -f styles.css ]; then gh release download "$base" --pattern styles.css --output styles.css; fi
+          else
+            npm ci
+            npm test
+            npm run build
+          fi
 
       - name: Create release
         if: steps.existing.outputs.exists == 'false'
