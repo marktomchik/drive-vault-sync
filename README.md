@@ -59,7 +59,7 @@ That's it. The plugin now syncs a few seconds after you stop typing, when Obsidi
 ## How your data is stored
 
 - Files are uploaded to a folder in your Google Drive (default `ObsidianGoogleDriveSync`) together with an index file that tracks what each device has synced.
-- The plugin uses the `drive.file` scope: it can only see files it created itself, not the rest of your Drive.
+- With the default sign-in (device code) the plugin uses the `drive.file` scope: it can only see files it created itself. Signing in through the browser with a "Desktop app" OAuth client gives full Drive access, which lets the plugin import files that other apps put into the vault folder (see *Files added by other apps*).
 - Your Google sign-in token and OAuth client secret are stored in the plugin's data file inside your vault's configuration folder. Don't share or commit that file.
 - Conflict copies and diagnostic files are kept in the hidden `.sync/` folder of your vault.
 
@@ -67,6 +67,16 @@ That's it. The plugin now syncs a few seconds after you stop typing, when Obsidi
 
 - The plugin talks only to Google services: `oauth2.googleapis.com` (sign-in), `www.googleapis.com` (Google Drive API) and, only when you run the connection test, `accounts.google.com`.
 - There is no telemetry, no analytics and no third-party server. Logs stay on your device.
+
+## Files added by other apps
+
+Notes that another app (for example an AI assistant or the Google Drive website) puts into the vault folder in Google Drive are downloaded into the vault. This needs full Drive access (browser sign-in with a "Desktop app" client); phones signed in with limited access receive these notes after a computer has imported them.
+
+- **On by default** since 1.3.0 (*Settings → Import files added by other apps*).
+- A quick check looks at files changed since the last check; **the whole vault folder is listed on every manual sync and every 6 hours**, so nothing is missed.
+- The file is copied into a file the plugin owns. With *Tidy up imported originals* (on by default) the original then goes to the Drive trash, so no duplicates with the same name pile up.
+- If the vault's own copy of a note was trashed in Google Drive, a new copy is created instead of writing into the trash.
+- More than 50 files at once wait for your review (*Preview files added outside Obsidian*). Local edits are never overwritten — both versions are kept.
 
 ## Excluded files
 
