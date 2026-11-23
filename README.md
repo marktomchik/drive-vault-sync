@@ -68,6 +68,10 @@ That's it. The plugin now syncs a few seconds after you stop typing, when Obsidi
 - The plugin talks only to Google services: `oauth2.googleapis.com` (sign-in), `www.googleapis.com` (Google Drive API) and, only when you run the connection test, `accounts.google.com`.
 - There is no telemetry, no analytics and no third-party server. Logs stay on your device.
 
+## Sync order
+
+Files changed in the last 14 days are synced first, newest first, so today's notes arrive before the rest of the vault. Everything else follows in the usual order. Change the number of days, or turn this off with 0, under *Settings → Sync recent files first, days*.
+
 ## Files added by other apps
 
 Notes that another app (for example an AI assistant or the Google Drive website) puts into the vault folder in Google Drive are downloaded into the vault. This needs full Drive access (browser sign-in with a "Desktop app" client); phones signed in with limited access receive these notes after a computer has imported them.
