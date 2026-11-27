@@ -80,6 +80,7 @@ Notes that another app (for example an AI assistant or the Google Drive website)
 - A quick check looks at files changed since the last check; **the whole vault folder is listed on every manual sync and every 6 hours**, so nothing is missed.
 - The file is copied into a file the plugin owns. With *Tidy up imported originals* (on by default) the original then goes to the Drive trash, so no duplicates with the same name pile up.
 - If the vault's own copy of a note was trashed in Google Drive, a new copy is created instead of writing into the trash.
+- **One file per note** (since 1.3.2, *Keep only the newest copy of a note*, on by default). If Google Drive ends up with several files of the same name for one note — for example because an app saved a new version next to the old one instead of replacing it — the older copies go to the Drive trash once the newest version is in the vault. A copy that is newer than the vault's version is imported first and never trashed. Trashed copies can be restored from the Drive trash for 30 days.
 - More than 50 files at once wait for your review (*Preview files added outside Obsidian*). Local edits are never overwritten — both versions are kept.
 
 ## Excluded files
